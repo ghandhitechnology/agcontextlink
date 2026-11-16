@@ -448,7 +448,7 @@ export async function postMessage(ctx: SeatContext, raw: unknown): Promise<Messa
     throw new RoomError('rate_limited', `A seat can send ${config.limits.messagesPerMinute} messages a minute. Wait a moment.`);
   }
 
-  const hashes = [...new Set(text.match(SECRET_SHAPE) ?? [])].slice(0, 200).map(sha256);
+  const hashes = [...new Set(text.match(SECRET_SHAPE) ?? [])].map(sha256);
   if (hashes.length) {
     const list = sql.join(hashes.map((h) => sql`${h}`), sql`, `);
     const leak = await db.execute(sql`
@@ -460,18 +460,13 @@ export async function postMessage(ctx: SeatContext, raw: unknown): Promise<Messa
     }
   }
 
-  try {
-    return await db.transaction(async (tx) => {
-      const [row] = await tx.insert(messages).values({ roomId: ctx.room.id, seatId: ctx.seat.id, text }).returning();
-      await notify(tx, ctx.room.id, 'message');
-      return { id: row!.id, seatId: ctx.seat.id, from: ctx.seat.displayName, role: ctx.seat.role, at: row!.createdAt, text };
-    });
-  } catch (error) {
-    if ((error as { cause?: { code?: string } }).cause?.code === '23503' || (error as { code?: string }).code === '23503') {
-      throw ended();
-    }
-    throw error;
-  }
+  // The room lock makes message ids commit in order, so a reader's `after` never skips a later commit.
+  return db.transaction(async (tx) => {
+    if (!(await lockRoom(tx, ctx.room.id))?.live) throw ended();
+    const [row] = await tx.insert(messages).values({ roomId: ctx.room.id, seatId: ctx.seat.id, text }).returning();
+    await notify(tx, ctx.room.id, 'message');
+    return { id: row!.id, seatId: ctx.seat.id, from: ctx.seat.displayName, role: ctx.seat.role, at: row!.createdAt, text };
+  });
 }
 
 export async function readMessages(

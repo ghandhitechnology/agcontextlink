@@ -45,6 +45,8 @@ app.onError((error, c) => {
   if (error instanceof RoomError) {
     return wantsJson(c) ? c.json({ error: error.code, message: error.message }, error.status) : c.text(error.message, error.status);
   }
-  console.error('error', routePath(c, -1), error instanceof Error ? error.message : error);
+  // Database errors carry query parameters, which can be message text. Log only a code.
+  const code = (error as { cause?: { code?: string } }).cause?.code ?? (error as { code?: string }).code;
+  console.error('error', routePath(c, -1), code ?? (error instanceof Error ? error.name : 'unknown'));
   return c.text('Something went wrong.', 500);
 });
