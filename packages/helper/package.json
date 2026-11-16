@@ -1,0 +1,23 @@
+{
+  "name": "agcontextlink",
+  "version": "0.1.0",
+  "description": "Local Claude Code connection to an agcontextlink room, with live push through channels.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "agcontextlink": "dist/cli.js" },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}
